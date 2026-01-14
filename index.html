@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>马赛马拉酒店分布示意图</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    
+    <style>
+        .map-container {
+            position: relative;
+            background-color: #f0fdf4;
+            border: 2px solid #166534;
+            border-radius: 12px;
+            overflow: hidden;
+            z-index: 0;
+        }
+        /* Custom scrollbar */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 3px;
+        }
+        .hotel-list-item {
+            transition: all 0.2s;
+            cursor: pointer; /* 鼠标变为手型 */
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        .hotel-list-item:hover {
+            background-color: #dbeafe; /* 悬停变为浅蓝色 */
+            padding-left: 12px;
+            color: #1e40af;
+        }
+        .hotel-list-item.active-hotel {
+            background-color: #2563eb;
+            color: white;
+            padding-left: 12px;
+        }
+        .zone-header {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .zone-header:hover {
+            background-color: #e5e7eb;
+        }
+    </style>
+</head>
+<body class="bg-stone-100 text-stone-800 font-sans p-4">
+
+    <div class="max-w-6xl mx-auto">
+        <header class="mb-6 text-center">
+            <h1 class="text-3xl font-bold text-stone-900">马赛马拉酒店分布全景图 (2026)</h1>
+            <p class="text-stone-600 mt-2">点击右侧列表中的<b>任意酒店</b>，地图将自动定位并显示位置</p>
+        </header>
+
+        <div class="flex flex-col lg:flex-row gap-6 h-[800px] lg:h-[600px]">
+            
+            <!-- MAP SECTION -->
+            <div id="map" class="w-full lg:w-3/5 h-full map-container shadow-xl">
+                <!-- Leaflet map will be rendered here -->
+            </div>
+
+            <!-- LIST SECTION -->
+            <div class="w-full lg:w-2/5 h-full bg-white rounded-xl shadow-lg border border-stone-200 flex flex-col">
+                <div class="p-4 border-b border-stone-200 bg-stone-50">
+                    <h2 class="text-xl font-bold text-stone-800">区域酒店列表</h2>
+                    <p class="text-xs text-stone-500">点击具体的酒店名称，在地图上查看位置</p>
+                </div>
+                
+                <div class="flex-1 overflow-y-auto p-4 custom-scroll" id="hotel-list-container">
+                    
+                    <!-- Zone A -->
+                    <div id="zone-a" class="mb-6">
+                        <div class="zone-header p-2 rounded" onclick="panToZone('zone-a')">
+                            <h3 class="font-bold text-green-700 border-b border-green-200 pb-1 mb-2">A 区：西部悬崖 & 马拉三角</h3>
+                        </div>
+                        <ul class="text-sm space-y-2 text-stone-600 pl-2">
+                            <li class="hotel-list-item" onclick="locateHotel('Angama Mara')">★ <b>Angama Mara</b> (悬崖顶端)</li>
+                            <li class="hotel-list-item" onclick="locateHotel('Mara Serena Safari Lodge')">• Mara Serena Safari Lodge (三角区)</li>
+                            <li class="hotel-list-item" onclick="locateHotel('Kilima Camp')">• Kilima Camp</li>
+                            <li class="hotel-list-item" onclick="locateHotel('Bateleur Camp')">• Bateleur Camp (&Beyond)</li>
+                            <li class="hotel-list-item" onclick="locateHotel('Kichwa Tembo Tented Camp')">• Kichwa Tembo</li>
+                        </ul>
+                    </div>
+
+                    <!-- Zone B -->
+                    <div id="zone-b" class="mb-6">
+                        <div class="zone-header p-2 rounded" onclick="panToZone('zone-b')">
+                            <h3 class="font-bold text-green-700 border-b border-green-200 pb-1 mb-2">B 区：北部私人保护区</h3>
+                        </div>
+                        <ul class="text-sm space-y-2 text-stone-600 pl-2">
+                            <li class="hotel-list-item" onclick="locateHotel('Neptune Mara Rianta')">• Neptune Mara Rianta Luxury Camp</li>
+                            <li class="hotel-list-item" onclick="locateHotel('Fairmont Mara Safari Club')">• Fairmont Mara Safari Club</li>
+                            <li class="hotel-list-item" onclick="locateHotel('Soroi Mara Bush Camp')">• Soroi Mara Bush Camp</li>
+                            <li class="hotel-list-item" onclick="locateHotel('Lalashe Maasai Mara')">• Lalashe Maasai Mara / Ripoi</li>
+                            <li class="hotel-list-item" onclick="locateHotel('Mara Crossings Camp')">• Mara Crossings Camp</li>
+                        </ul>
+                    </div>
+
+                    <!-- Zone C -->
+                    <div id="zone-c" class="mb-6 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <div class="zone-header p-2 rounded" onclick="panToZone('zone-c')">
+                            <h3 class="font-bold text-yellow-700 border-b border-yellow-200 pb-1 mb-2">C 区：塔雷克河核心区 (JW万豪)</h3>
+                        </div>
+                        <ul class="text-sm space-y-2 text-stone-600 pl-2 pb-2">
+                            <li class="hotel-list-item text-red-600 font-bold text-base" onclick="locateHotel('JW Marriott Masai Mara')">★ JW Marriott Masai Mara</li>
+                            <li class="hotel-list-item" onclick="locateHotel('Ashnil Mara Camp')">• Ashnil Mara Camp (河边)</li>
+                            <li class="hotel-list-item" onclick="locateHotel('Mara Intrepids Camp')">• Mara Intrepids Camp</li>
+                            <li class="hotel-list-item" onclick="locateHotel('Fig Tree Camp')">• Fig Tree Camp</li>
+                            <li class="hotel-list-item" onclick="locateHotel('Entim Camp')">• Entim Main/Private (渡河点)</li>
+                            <li class="hotel-list-item" onclick="locateHotel('Zebra Plains Mara Camp')">• Zebra Plains Mara Camp</li>
+                            <li class="hotel-list-item" onclick="locateHotel('Mara Simba Lodge')">• Mara Simba Lodge</li>
+                            <li class="hotel-list-item" onclick="locateHotel('PrideInn Mara')">• PrideInn Mara</li>
+                            <li class="hotel-list-item" onclick="locateHotel('Mara Leisure Camp')">• Kobe Tents / Mara Leisure</li>
+                        </ul>
+                    </div>
+
+                    <!-- Zone D -->
+                    <div id="zone-d" class="mb-6">
+                        <div class="zone-header p-2 rounded" onclick="panToZone('zone-d')">
+                            <h3 class="font-bold text-green-700 border-b border-green-200 pb-1 mb-2">D 区：Sekenani & 中部</h3>
+                        </div>
+                        <ul class="text-sm space-y-2 text-stone-600 pl-2">
+                            <li class="hotel-list-item" onclick="locateHotel('Muthu Keekorok Lodge')">• Muthu Keekorok Lodge (园内中心)</li>
+                            <li class="hotel-list-item" onclick="locateHotel('Sarova Mara Game Camp')">• Sarova Mara Game Camp</li>
+                            <li class="hotel-list-item" onclick="locateHotel('AA Lodge Masai Mara')">• AA Lodge Masai Mara</li>
+                            <li class="hotel-list-item" onclick="locateHotel('Sentrim Mara')">• Sentrim Mara</li>
+                            <li class="hotel-list-item" onclick="locateHotel('Spirit of the Masai Mara')">• Spirit of the Masai Mara</li>
+                            <li class="hotel-list-item" onclick="locateHotel('Mara Bushtops')">• Mara Bushtops</li>
+                        </ul>
+                    </div>
+
+                    <!-- Zone E -->
+                    <div id="zone-e" class="mb-6">
+                        <div class="zone-header p-2 rounded" onclick="panToZone('zone-e')">
+                            <h3 class="font-bold text-green-700 border-b border-green-200 pb-1 mb-2">E 区：东部大门 (Oloolaimutia)</h3>
+                        </div>
+                        <ul class="text-sm space-y-2 text-stone-600 pl-2">
+                            <li class="hotel-list-item" onclick="locateHotel('Masai Mara Sopa Lodge')">• Masai Mara Sopa Lodge</li>
+                            <li class="hotel-list-item" onclick="locateHotel('Jambo Mara Safari Lodge')">• Jambo Mara Safari Lodge</li>
+                            <li class="hotel-list-item" onclick="locateHotel('Enkorok Mara Camp')">• Enkorok Mara Camp</li>
+                            <li class="hotel-list-item" onclick="locateHotel('Lenchada Tourist Camp')">• Lenchada Tourist Camp</li>
+                            <li class="hotel-list-item" onclick="locateHotel('Mara Chui Resort')">• Mara Chui Resort</li>
+                        </ul>
+                    </div>
+
+                    <!-- Zone F -->
+                    <div id="zone-f" class="mb-6 bg-red-50 rounded-lg border border-red-200">
+                        <div class="zone-header p-2 rounded" onclick="panToZone('zone-f')">
+                            <h3 class="font-bold text-red-700 border-b border-red-200 pb-1 mb-2">F 区：南部沙河 (Ritz Carlton)</h3>
+                        </div>
+                        <ul class="text-sm space-y-2 text-stone-600 pl-2 pb-2">
+                            <li class="hotel-list-item text-red-600 font-bold text-base" onclick="locateHotel('Ritz-Carlton Masai Mara')">★ The Ritz-Carlton Masai Mara</li>
+                            <li class="hotel-list-item" onclick="locateHotel('Elewana Sand River')">• Elewana Sand River</li>
+                        </ul>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-4 text-xs text-gray-500 text-center">
+            * 点击列表中的酒店即可定位。地图坐标为近似位置，仅供参考，不建议用于精准导航。
+        </div>
+    </div>
+
+    <!-- 引入 Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <script>
+        // --- 1. 基础数据配置 ---
+        
+        // 区域中心点
+        const zones = {
+            'zone-a': { lat: -1.266, lng: 34.966, title: "A区: Angama/Triangle", color: '#15803d' },
+            'zone-b': { lat: -1.090, lng: 35.150, title: "B区: 北部私保区", color: '#15803d' },
+            'zone-c': { lat: -1.437, lng: 35.208, title: "C区: Talek (JW万豪)", color: '#eab308' },
+            'zone-d': { lat: -1.530, lng: 35.335, title: "D区: Sekenani", color: '#15803d' },
+            'zone-e': { lat: -1.610, lng: 35.410, title: "E区: Oloolaimutia", color: '#15803d' },
+            'zone-f': { lat: -1.635, lng: 35.170, title: "F区: Sand River (Ritz)", color: '#dc2626' }
+        };
+
+        // 详细酒店坐标 (近似值，用于视觉定位)
+        const hotelData = {
+            // A区
+            'Angama Mara': { lat: -1.268, lng: 34.965 },
+            'Mara Serena Safari Lodge': { lat: -1.405, lng: 35.006 },
+            'Kilima Camp': { lat: -1.285, lng: 34.980 },
+            'Bateleur Camp': { lat: -1.240, lng: 35.035 },
+            'Kichwa Tembo Tented Camp': { lat: -1.242, lng: 35.038 },
+
+            // B区
+            'Neptune Mara Rianta': { lat: -1.135, lng: 35.095 },
+            'Fairmont Mara Safari Club': { lat: -1.090, lng: 35.180 },
+            'Soroi Mara Bush Camp': { lat: -1.180, lng: 35.220 },
+            'Lalashe Maasai Mara': { lat: -1.150, lng: 35.200 },
+            'Mara Crossings Camp': { lat: -1.240, lng: 35.080 },
+
+            // C区 (Talek)
+            'JW Marriott Masai Mara': { lat: -1.437, lng: 35.205 }, // 核心位置
+            'Ashnil Mara Camp': { lat: -1.428, lng: 35.168 },
+            'Mara Intrepids Camp': { lat: -1.400, lng: 35.140 },
+            'Fig Tree Camp': { lat: -1.442, lng: 35.210 },
+            'Entim Camp': { lat: -1.430, lng: 35.130 },
+            'Zebra Plains Mara Camp': { lat: -1.455, lng: 35.230 }, // 园外平原
+            'Mara Simba Lodge': { lat: -1.445, lng: 35.220 },
+            'PrideInn Mara': { lat: -1.448, lng: 35.215 },
+            'Mara Leisure Camp': { lat: -1.440, lng: 35.218 },
+
+            // D区 (Sekenani/Central)
+            'Muthu Keekorok Lodge': { lat: -1.585, lng: 35.245 }, // 园内正中心
+            'Sarova Mara Game Camp': { lat: -1.530, lng: 35.330 },
+            'AA Lodge Masai Mara': { lat: -1.535, lng: 35.345 },
+            'Sentrim Mara': { lat: -1.532, lng: 35.350 },
+            'Spirit of the Masai Mara': { lat: -1.500, lng: 35.400 },
+            'Mara Bushtops': { lat: -1.510, lng: 35.410 },
+
+            // E区 (East)
+            'Masai Mara Sopa Lodge': { lat: -1.615, lng: 35.430 },
+            'Jambo Mara Safari Lodge': { lat: -1.625, lng: 35.420 },
+            'Enkorok Mara Camp': { lat: -1.630, lng: 35.425 },
+            'Lenchada Tourist Camp': { lat: -1.610, lng: 35.415 },
+            'Mara Chui Resort': { lat: -1.612, lng: 35.418 },
+
+            // F区 (Sand River)
+            'Ritz-Carlton Masai Mara': { lat: -1.635, lng: 35.160 },
+            'Elewana Sand River': { lat: -1.638, lng: 35.165 }
+        };
+
+
+        // --- 2. 地图初始化 ---
+        
+        const map = L.map('map').setView([-1.45, 35.20], 10);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // --- 3. 图标定义 ---
+
+        function createZoneIcon(label, color) {
+            return L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div style="background-color:${color}; width:24px; height:24px; border-radius:50%; border:2px solid white; display:flex; align-items:center; justify-content:center; color:white; font-weight:bold; font-size:12px; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">${label}</div>`,
+                iconSize: [24, 24],
+                iconAnchor: [12, 12]
+            });
+        }
+
+        const hotelIcon = L.divIcon({
+            className: 'hotel-marker',
+            html: `<div style="background-color:#2563eb; width:16px; height:16px; border-radius:50%; border:3px solid white; box-shadow: 0 0 0 2px #2563eb; box-shadow: 0 4px 8px rgba(0,0,0,0.4);"></div>`,
+            iconSize: [16, 16],
+            iconAnchor: [8, 8],
+            popupAnchor: [0, -10]
+        });
+
+        // --- 4. 渲染区域标记 ---
+
+        Object.keys(zones).forEach(key => {
+            const zone = zones[key];
+            const label = key.split('-')[1].toUpperCase();
+            
+            const marker = L.marker([zone.lat, zone.lng], {
+                icon: createZoneIcon(label, zone.color)
+            }).addTo(map);
+
+            marker.bindPopup(`<b>${zone.title}</b><br>点击右侧列表展开`);
+            
+            marker.on('click', function() {
+                panToZone(key);
+            });
+        });
+
+        // 默认显示重要的特殊标记
+        const specialMarkers = [
+             { name: "JW Marriott", lat: -1.437, lng: 35.205, color: "#F59E0B" },
+             { name: "Ritz-Carlton", lat: -1.635, lng: 35.160, color: "#E11D48" }
+        ];
+
+        specialMarkers.forEach(m => {
+             L.marker([m.lat, m.lng], {
+                 icon: L.divIcon({
+                    className: 'star-icon',
+                    html: `<div style="background-color:${m.color}; width:30px; height:30px; border-radius:50%; border:2px solid white; display:flex; align-items:center; justify-content:center; color:white; font-weight:bold; font-size:14px; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">★</div>`,
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15]
+                 })
+             }).addTo(map).bindPopup(`<b>${m.name}</b>`);
+        });
+
+
+        // --- 5. 交互功能 ---
+
+        let currentSelectionMarker = null;
+
+        // 定位具体酒店的功能
+        window.locateHotel = function(hotelName) {
+            const data = hotelData[hotelName];
+            
+            // 1. UI 高亮逻辑
+            document.querySelectorAll('.hotel-list-item').forEach(el => {
+                el.classList.remove('active-hotel');
+                // 简单的文本匹配来高亮当前点击项
+                if(el.textContent.includes(hotelName)) {
+                    el.classList.add('active-hotel');
+                }
+            });
+
+            if (data) {
+                // 2. 地图操作
+                
+                // 清除上一个选择的标记
+                if (currentSelectionMarker) {
+                    map.removeLayer(currentSelectionMarker);
+                }
+
+                // 飞到目标位置
+                map.flyTo([data.lat, data.lng], 13, {
+                    animate: true,
+                    duration: 1.2
+                });
+
+                // 添加新标记
+                currentSelectionMarker = L.marker([data.lat, data.lng], {
+                    icon: hotelIcon
+                }).addTo(map);
+
+                currentSelectionMarker.bindPopup(`<b>${hotelName}</b>`).openPopup();
+            } else {
+                console.warn("未找到坐标:", hotelName);
+                alert("暂无该酒店的精确坐标数据，已定位到所在区域。");
+            }
+        }
+
+        // 定位区域的功能
+        window.panToZone = function(zoneId) {
+            const zone = zones[zoneId];
+            if (zone) {
+                map.flyTo([zone.lat, zone.lng], 12, {
+                    animate: true,
+                    duration: 1.5
+                });
+                
+                // UI 滚动
+                const element = document.getElementById(zoneId);
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    // 闪烁效果
+                    const originalBg = element.style.backgroundColor;
+                    element.style.transition = "background-color 0.5s";
+                    element.style.backgroundColor = "#dcfce7";
+                    setTimeout(() => {
+                        element.style.backgroundColor = originalBg || "";
+                    }, 1500);
+                }
+            }
+        }
+
+    </script>
+</body>
+</html>
