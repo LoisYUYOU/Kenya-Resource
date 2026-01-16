@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>东非旅行预算规划器</title>
+    <!-- 引入 React 和 ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- 引入 Babel 用于解析 JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 配置 Tailwind 主题颜色 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        amber: { 
+                            50: '#fffbeb', 100: '#fef3c7', 200: '#fde68a', 
+                            300: '#fcd34d', 400: '#fbbf24', 500: '#f59e0b', 
+                            600: '#d97706', 700: '#b45309', 800: '#92400e', 
+                            900: '#78350f', 950: '#451a03',
+                        },
+                        stone: {
+                            50: '#fafaf9', 100: '#f5f5f4', 200: '#e7e5e4',
+                            300: '#d6d3d1', 400: '#a8a29e', 500: '#78716c',
+                            800: '#292524',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 隐藏滚动条但允许滚动 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        body { background-color: #fafaf9; }
+        /* 修复滑块样式 */
+        input[type=range] { -webkit-appearance: none; background: transparent; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- 0. 图标组件定义 (替代 import lucide-react) ---
+        // 通用 SVG 包装器
+        const IconWrapper = ({ children, size = 20, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                {children}
+            </svg>
+        );
+
+        // 各个具体图标的定义 (使用 React Fragment <>...</> 避免 JSX 错误)
+        const Globe = (props) => <IconWrapper {...props}><><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></></IconWrapper>;
+        const Map = (props) => <IconWrapper {...props}><><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></></IconWrapper>;
+        const Info = (props) => <IconWrapper {...props}><><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></></IconWrapper>;
+        const Plane = (props) => <IconWrapper {...props}><path d="M2 12h20M13 2l9 10-9 10M2 12l5-5m-5 5l5 5"/></IconWrapper>;
+        const CreditCard = (props) => <IconWrapper {...props}><><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></></IconWrapper>;
+        const CheckCircle = (props) => <IconWrapper {...props}><><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></></IconWrapper>;
+        const Hotel = (props) => <IconWrapper {...props}><><path d="M10 22v-6.57"/><path d="M14 22v-6.57"/><path d="M2 22h20"/><path d="M12 2v20"/><path d="M5 2h14a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/></></IconWrapper>;
+        const Car = (props) => <IconWrapper {...props}><><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M5 17h14"/></></IconWrapper>;
+        const Wallet = (props) => <IconWrapper {...props}><><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6.68a2 2 0 0 0-2-2.1c-1.11 0-2 .89-2 2s.9 2 2 2z"/></></IconWrapper>;
+        const Smartphone = (props) => <IconWrapper {...props}><><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></></IconWrapper>;
+        const Share2 = (props) => <IconWrapper {...props}><><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></></IconWrapper>;
+
+        // --- 主组件 ---
+        const EastAfricaBudgetPlanner = () => {
+            // --- 状态管理 ---
+            const [country, setCountry] = useState('kenya');
+            const [days, setDays] = useState(7);
+            const [travelers, setTravelers] = useState(2);
+            const [flightCost, setFlightCost] = useState(6000); // 人民币
+            const [accommodationLevel, setAccommodationLevel] = useState('mid');
+            const [vehicleType, setVehicleType] = useState('van');
+            const [shoppingStyle, setShoppingStyle] = useState('low');
+            const [includeSim, setIncludeSim] = useState(true);
+            const [totalPrice, setTotalPrice] = useState(0);
+            const [grade, setGrade] = useState({ label: '经济型', color: 'bg-green-100 text-green-800' });
+
+            // --- 基础数据配置 ---
+            const CURRENCY = "¥";
+
+            const countries = {
+                kenya: { name: '肯尼亚', visa: 35, currency: 'USD' }, 
+                tanzania: { name: '坦桑尼亚', visa: 50, currency: 'USD' },
+                uganda: { name: '乌干达', visa: 50, currency: 'USD' },
+                rwanda: { name: '卢旺达', visa: 50, currency: 'USD' }
+            };
+
+            const accommodationPrices = { 
+                low: { price: 400, label: '经济型 (营地/三星)', desc: '干净卫生，基本设施' },
+                mid: { price: 1200, label: '舒适型 (四星/Lodge)', desc: '位置较好，含泳池/景观' },
+                high: { price: 3500, label: '奢华型 (五星/野奢)', desc: '顶级服务，核心保护区位置' }
+            };
+
+            const vehiclePrices = { 
+                van: { price: 1000, label: 'Safari面包车', desc: '顶盖可升起，性价高' },
+                jeep: { price: 1800, label: '陆地巡洋舰 (Jeep)', desc: '越野性能强，体验好，拍照更佳' }
+            };
+
+            const shoppingProfiles = {
+                low: { daily: 100, label: '佛系游玩', desc: '只买冰箱贴和咖啡' },
+                mid: { daily: 500, label: '适当纪念', desc: '购买少量工艺品或礼物' },
+                high: { daily: 2000, label: '超强购买欲', desc: '坦桑蓝、木雕、高档礼品' }
+            };
+
+            const tipsPerDay = 100; // 司机/导游小费
+            const simCardCost = 100; 
+            const exchangeRate = 7.2; 
+
+            // --- 智能文案推荐 ---
+            const getItinerarySuggestion = () => {
+                if (country === 'kenya') {
+                    if (days <= 4) return "主要游览：内罗毕 + 纳库鲁湖或安博塞利。";
+                    if (days <= 7) return "经典组合：内罗毕 + 纳库鲁 + 马赛马拉（重点）。";
+                    return "深度游：增加桑布鲁、博戈里亚或者蒙巴萨海边。";
+                }
+                if (country === 'tanzania') {
+                    if (days <= 5) return "精华游：塞伦盖蒂 + 恩戈罗恩戈罗火山口。";
+                    return "全景游：增加塔兰吉雷、曼雅拉湖或桑给巴尔岛。";
+                }
+                return "根据天数安排国家公园追踪猩猩或游猎行程。";
+            };
+
+            // --- 核心计算逻辑 ---
+            useEffect(() => {
+                const visaCost = countries[country].visa * exchangeRate;
+                const nights = Math.max(0, days - 1);
+                const hotelTotal = nights * accommodationPrices[accommodationLevel].price;
+                const carTotal = (vehiclePrices[vehicleType].price * days) / travelers;
+                const tipsTotal = days * tipsPerDay;
+                const shoppingTotal = days * shoppingProfiles[shoppingStyle].daily;
+                const simTotal = includeSim ? simCardCost : 0;
+                const grandTotal = flightCost + visaCost + hotelTotal + carTotal + tipsTotal + shoppingTotal + simTotal;
+
+                setTotalPrice(Math.round(grandTotal));
+
+                if (grandTotal < 15000) {
+                    setGrade({ label: '经济实惠型', color: 'bg-blue-100 text-blue-800' });
+                } else if (grandTotal < 35000) {
+                    setGrade({ label: '舒适品质型', color: 'bg-yellow-100 text-yellow-800' });
+                } else {
+                    setGrade({ label: '奢华享受型', color: 'bg-purple-100 text-purple-800' });
+                }
+
+            }, [country, days, travelers, flightCost, accommodationLevel, vehicleType, shoppingStyle, includeSim]);
+
+            // --- 辅助组件 ---
+            const SectionTitle = ({ icon: Icon, title }) => (
+                <div className="flex items-center gap-2 mb-4 text-amber-800 border-b border-amber-200 pb-2 mt-6">
+                    <Icon size={20} />
+                    <h3 className="font-bold text-lg">{title}</h3>
+                </div>
+            );
+
+            return (
+                <div className="min-h-screen bg-stone-50 text-stone-800 font-sans selection:bg-amber-200">
+                    {/* 顶部 Header */}
+                    <header className="bg-amber-900 text-white p-6 shadow-lg sticky top-0 z-50">
+                        <div className="max-w-4xl mx-auto flex justify-between items-center">
+                            <div>
+                                <h1 className="text-2xl font-bold flex items-center gap-2">
+                                    <Globe className="text-amber-400" />
+                                    东非旅行预算计算器
+                                </h1>
+                                <p className="text-amber-200 text-sm mt-1">定制您的专属Safari行程</p>
+                            </div>
+                            <div className="text-right hidden sm:block">
+                                <div className="text-xs opacity-80">当前预估总价 (人均)</div>
+                                <div className="text-3xl font-bold text-amber-400">{CURRENCY} {totalPrice.toLocaleString()}</div>
+                            </div>
+                        </div>
+                    </header>
+
+                    <main className="max-w-4xl mx-auto p-4 md:p-6 grid md:grid-cols-3 gap-6">
+                        
+                        {/* 左侧：输入区域 */}
+                        <div className="md:col-span-2 space-y-6">
+                            
+                            {/* 1. 区域与基础信息 */}
+                            <div className="bg-white p-6 rounded-xl shadow-sm border border-stone-200">
+                                <SectionTitle icon={Map} title="基础行程信息" />
+                                
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-stone-600 mb-1">目的地国家</label>
+                                        <select 
+                                            value={country} 
+                                            onChange={(e) => setCountry(e.target.value)}
+                                            className="w-full p-3 bg-stone-50 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
+                                        >
+                                            {Object.entries(countries).map(([key, data]) => (
+                                                <option key={key} value={key}>{data.name} (签证 ${data.visa})</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-stone-600 mb-1">出行人数</label>
+                                        <div className="flex items-center gap-3">
+                                            <input 
+                                                type="range" min="1" max="10" 
+                                                value={travelers} 
+                                                onChange={(e) => setTravelers(parseInt(e.target.value))}
+                                                className="flex-1 h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer accent-amber-600"
+                                            />
+                                            <span className="w-12 text-center font-bold bg-amber-100 py-1 rounded text-amber-900">{travelers}人</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="sm:col-span-2">
+                                        <label className="block text-sm font-medium text-stone-600 mb-1">
+                                            游玩天数 <span className="text-xs text-amber-600 font-normal ml-2">({days - 1} 晚住宿)</span>
+                                        </label>
+                                        <div className="flex items-center gap-3">
+                                            <input 
+                                                type="range" min="3" max="20" 
+                                                value={days} 
+                                                onChange={(e) => setDays(parseInt(e.target.value))}
+                                                className="flex-1 h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer accent-amber-600"
+                                            />
+                                            <span className="w-12 text-center font-bold bg-amber-100 py-1 rounded text-amber-900">{days}天</span>
+                                        </div>
+                                        <div className="mt-2 text-sm text-stone-500 bg-stone-100 p-3 rounded-lg flex items-start gap-2">
+                                            <Info size={16} className="mt-0.5 shrink-0" />
+                                            {getItinerarySuggestion()}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* 2. 大交通与硬性支出 */}
+                            <div className="bg-white p-6 rounded-xl shadow-sm border border-stone-200">
+                                <SectionTitle icon={Plane} title="大交通与签证" />
+                                
+                                <div className="grid gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-stone-600 mb-1">往返机票预算 (CNY/人)</label>
+                                        <input 
+                                            type="number" 
+                                            value={flightCost} 
+                                            onChange={(e) => setFlightCost(parseInt(e.target.value) || 0)}
+                                            className="w-full p-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none"
+                                            placeholder="例如：6000"
+                                        />
+                                        <p className="text-xs text-stone-400 mt-1">淡旺季价格浮动较大，建议查询机票网站后填入</p>
+                                    </div>
+
+                                    <div className="flex gap-4">
+                                        <div className="flex items-center gap-2 p-3 bg-stone-50 rounded-lg border border-stone-200 flex-1">
+                                            <CreditCard size={18} className="text-stone-400"/>
+                                            <div className="text-sm">
+                                                <div className="text-stone-500">签证费</div>
+                                                <div className="font-semibold">${countries[country].visa} ≈ ¥{Math.round(countries[country].visa * exchangeRate)}</div>
+                                            </div>
+                                        </div>
+                                        <div 
+                                            className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer flex-1 transition-all ${includeSim ? 'bg-amber-50 border-amber-300' : 'bg-stone-50 border-stone-200'}`}
+                                            onClick={() => setIncludeSim(!includeSim)}
+                                        >
+                                            <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${includeSim ? 'bg-amber-500 border-amber-500' : 'border-stone-400'}`}>
+                                                {includeSim && <CheckCircle size={14} className="text-white" />}
+                                            </div>
+                                            <div className="text-sm">
+                                                <div className="font-medium">电话卡/流量</div>
+                                                <div className="text-xs text-stone-500">约 ¥100</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* 3. 住宿与车辆 */}
+                            <div className="bg-white p-6 rounded-xl shadow-sm border border-stone-200">
+                                <SectionTitle icon={Hotel} title="住宿与用车" />
+                                
+                                <div className="space-y-6">
+                                    {/* 住宿选择 */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-stone-600 mb-2">住宿标准 (单人/晚)</label>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                            {Object.entries(accommodationPrices).map(([key, item]) => (
+                                                <div 
+                                                    key={key}
+                                                    onClick={() => setAccommodationLevel(key)}
+                                                    className={`p-3 rounded-lg border cursor-pointer transition-all ${accommodationLevel === key ? 'bg-amber-50 border-amber-500 ring-1 ring-amber-500' : 'bg-white border-stone-200 hover:border-amber-300'}`}
+                                                >
+                                                    <div className="font-bold text-amber-900">{item.label}</div>
+                                                    <div className="text-xs text-stone-500 mt-1 h-8">{item.desc}</div>
+                                                    <div className="text-lg font-semibold text-amber-600 mt-2">¥{item.price}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* 车辆选择 */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-stone-600 mb-2">Safari 车型 (整车/天)</label>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            {Object.entries(vehiclePrices).map(([key, item]) => (
+                                                <div 
+                                                    key={key}
+                                                    onClick={() => setVehicleType(key)}
+                                                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${vehicleType === key ? 'bg-amber-50 border-amber-500 ring-1 ring-amber-500' : 'bg-white border-stone-200 hover:border-amber-300'}`}
+                                                >
+                                                    <div className="p-2 bg-white rounded-full border border-stone-100">
+                                                        <Car className="text-amber-700" size={24} />
+                                                    </div>
+                                                    <div>
+                                                        <div className="font-bold text-stone-800">{item.label}</div>
+                                                        <div className="text-xs text-stone-500">{item.desc}</div>
+                                                        <div className="text-sm font-semibold text-amber-600 mt-1">¥{item.price} /车</div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div className="mt-2 text-xs text-stone-400 text-right">
+                                            当前车费人均: ¥{Math.round((vehiclePrices[vehicleType].price * days) / travelers)} (含{days}天)
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* 4. 其它费用 */}
+                            <div className="bg-white p-6 rounded-xl shadow-sm border border-stone-200">
+                                <SectionTitle icon={Wallet} title="小费与购物" />
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-stone-600 mb-2">个人消费欲望</label>
+                                        <div className="flex flex-col sm:flex-row gap-3">
+                                            {Object.entries(shoppingProfiles).map(([key, item]) => (
+                                                <button
+                                                    key={key}
+                                                    onClick={() => setShoppingStyle(key)}
+                                                    className={`flex-1 py-2 px-3 rounded-lg text-sm border transition-colors ${shoppingStyle === key ? 'bg-amber-600 text-white border-amber-600' : 'bg-white text-stone-600 border-stone-300 hover:bg-stone-50'}`}
+                                                >
+                                                    {item.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <p className="text-xs text-stone-500 mt-2">
+                                            预估: {shoppingProfiles[shoppingStyle].desc} (约 ¥{shoppingProfiles[shoppingStyle].daily}/天)
+                                        </p>
+                                    </div>
+                                    
+                                    <div className="flex items-center justify-between pt-4 border-t border-stone-100">
+                                        <div className="flex items-center gap-2 text-stone-600">
+                                            <Smartphone size={18} />
+                                            <span className="text-sm">司导小费 (¥100/天)</span>
+                                        </div>
+                                        <div className="font-medium text-stone-800">¥{days * tipsPerDay}</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        {/* 右侧：结果面板 (移动端底部) */}
+                        <div className="md:col-span-1">
+                            <div className="sticky top-24 space-y-4">
+                                
+                                {/* 价格主卡片 */}
+                                <div className="bg-amber-900 text-white rounded-xl shadow-xl p-6 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 p-4 opacity-10">
+                                        <Globe size={100} />
+                                    </div>
+                                    
+                                    <div className="relative z-10">
+                                        <h2 className="text-lg font-medium text-amber-100 mb-1">预估总预算 (人均)</h2>
+                                        <div className="text-4xl font-bold mb-4">{CURRENCY} {totalPrice.toLocaleString()}</div>
+                                        
+                                        <div className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-6 ${grade.color.replace('bg-', 'bg-white text-').replace('text-', '') === 'green-800' ? 'bg-green-500' : grade.color.includes('yellow') ? 'bg-yellow-500' : 'bg-purple-500'} text-white`}>
+                                            {grade.label} 行程
+                                        </div>
+
+                                        <div className="space-y-2 text-sm border-t border-amber-800/50 pt-4">
+                                            <div className="flex justify-between">
+                                                <span className="text-amber-200">机票 & 签证</span>
+                                                <span>{CURRENCY} {flightCost + Math.round(countries[country].visa * exchangeRate)}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-amber-200">住宿 ({days-1}晚)</span>
+                                                <span>{CURRENCY} {(days-1) * accommodationPrices[accommodationLevel].price}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-amber-200">包车 ({days}天)</span>
+                                                <span>{CURRENCY} {Math.round((vehiclePrices[vehicleType].price * days) / travelers)}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-amber-200">杂项 (购物/小费)</span>
+                                                <span>{CURRENCY} {(days * shoppingProfiles[shoppingStyle].daily) + (days * tipsPerDay) + (includeSim ? simCardCost : 0)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* 专家建议卡片 */}
+                                <div className="bg-white p-5 rounded-xl shadow-sm border border-stone-200">
+                                    <div className="flex items-center gap-2 mb-3 text-amber-800">
+                                        <Info size={18} />
+                                        <h3 className="font-bold">预算优化建议</h3>
+                                    </div>
+                                    <ul className="text-sm text-stone-600 space-y-2 list-disc list-inside">
+                                        {travelers < 4 && (
+                                            <li>当前{travelers}人出行，车费分摊较高。若能凑齐4-6人，人均可节省约 ¥{Math.round(((vehiclePrices[vehicleType].price * days) / travelers) - ((vehiclePrices[vehicleType].price * days) / 6))}。</li>
+                                        )}
+                                        {accommodationLevel === 'high' && (
+                                            <li>野奢酒店价格较高，建议 "2晚奢华 + N晚舒适" 混搭，体验既好又不超支。</li>
+                                        )}
+                                        {vehicleType === 'jeep' && (
+                                            <li>陆地巡洋舰虽然贵，但在雨季或肯尼亚马赛马拉是必须的，不要为了省钱选面包车。</li>
+                                        )}
+                                        {flightCost > 8000 && (
+                                            <li>机票预算较高，建议提前3个月关注埃塞俄比亚航空或南方航空大促。</li>
+                                        )}
+                                        {travelers >= 4 && (
+                                            <li>人数较多，非常适合包一辆独立陆巡，私密性和自由度极高。</li>
+                                        )}
+                                    </ul>
+                                </div>
+
+                                <button 
+                                    onClick={() => alert("功能开发中：将生成图片或PDF发送给客户")}
+                                    className="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors shadow-md"
+                                >
+                                    <Share2 size={18} />
+                                    保存/分享预算方案
+                                </button>
+
+                            </div>
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<EastAfricaBudgetPlanner />);
+    </script>
+</body>
+</html>
